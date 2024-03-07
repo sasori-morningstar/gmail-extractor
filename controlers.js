@@ -51,13 +51,13 @@ async function readMails(req, res){
     oAuth2Client.setCredentials({refresh_token: req.query.refresh_token})
     //console.log(req.query.refresh_token)
 
-    const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/messages?maxResults=10`
+    const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/messages?maxResults=${req.params.numMsg}`
     const {token} = await oAuth2Client.getAccessToken()
     const config = generateConfig(url, token)
     const messages = await axios(config)
     let readMessages = new Array()
 
-    for(i=0;i<10;i++){
+    for(i=0;i<req.params.numMsg;i++){
         //console.log(i)
         let message = await getEmail(messages.data.messages[i], token)
         readMessages.push(message)
