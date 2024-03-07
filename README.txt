@@ -1,0 +1,2 @@
+Pour avoir la liste des emails, tu dois suivre le lien:
+http://localhost:8000/api/emails/{EMAIL ADDRESS HERE}/{CLIENT ID HERE}/{CLIENT SECRET HERE}?refresh_token={REFRESH TOKEN HERE (WITHOUT STRING SIGNS)}

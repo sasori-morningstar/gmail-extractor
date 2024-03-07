@@ -6,13 +6,13 @@ const { google } = require("googleapis")
 
 require("dotenv").config()
 
-const oAuth2Client = new google.auth.OAuth2(
+/*const oAuth2Client = new google.auth.OAuth2(
     process.env.CLIENT_ID,
     process.env.CLIENT_SECRET,
     process.env.REDIRECT_URIS
 )
 
-oAuth2Client.setCredentials({refresh_token: process.env.TOKEN_URI})
+oAuth2Client.setCredentials({refresh_token: process.env.TOKEN_URI})*/
 
 function getHeader(messageHeaders, header){
     j=0;
@@ -43,6 +43,14 @@ async function getEmail(message, token){
     return email
 }
 async function readMails(req, res){
+    const oAuth2Client = new google.auth.OAuth2(
+        req.params.client_id,
+        req.params.client_secret,
+        process.env.REDIRECT_URIS
+    )
+    oAuth2Client.setCredentials({refresh_token: req.query.refresh_token})
+    //console.log(req.query.refresh_token)
+
     const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/messages?maxResults=10`
     const {token} = await oAuth2Client.getAccessToken()
     const config = generateConfig(url, token)
