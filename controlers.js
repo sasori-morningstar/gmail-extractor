@@ -23,6 +23,13 @@ function getHeader(messageHeaders, header){
     }
 }
 
+function countMsgMin(date){
+    let now = new Date()
+    let msDifference = now - new Date(date)    
+    let minutes = Math.floor(msDifference / 1000 / 60);
+    return minutes
+}
+
 async function getEmail(message, token){
     let url2 = `https://gmail.googleapis.com/gmail/v1/users/${process.env.EMAIL}/messages/${message.id}`
     let config2 = generateConfig(url2, token);
@@ -33,11 +40,13 @@ async function getEmail(message, token){
     }else{
         msg = ""
     }
+    let date = getHeader(data2.payload.headers, "Date")
     let email = {
         Subject: getHeader(data2.payload.headers, "Subject"),
         From: getHeader(data2.payload.headers, "From"),
         To: getHeader(data2.payload.headers, "To"),
-        Date: getHeader(data2.payload.headers, "Date"),
+        Date: date,
+        Since: countMsgMin(date),
         Message: Buffer.from(msg,"base64").toString("ascii")
     }
     return email
