@@ -5,13 +5,13 @@ require("dotenv").config()
 
 const app = express()
 
-/*app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT, () => {
     console.log("Listening on port " + process.env.PORT)
-})*/
+})
 
 //app.use("/api", routes)
 
 app.get("/", async (req, res) => {
-    res.send("Welcome to your email visualiser")
+    res.status(200).send({message: "Welcome to your email visualiser"})
 })
 
