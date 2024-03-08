@@ -12,6 +12,7 @@ app.listen(process.env.PORT, () => {
 app.use("/api", routes)
 
 app.get("/", async (req, res) => {
+    res.status(200)
     res.send("Welcome to your email visualiser")
 })
 
