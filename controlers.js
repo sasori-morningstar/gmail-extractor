@@ -30,8 +30,8 @@ function countMsgMin(date){
     return minutes
 }
 
-async function getEmail(message, token){
-    let url2 = `https://gmail.googleapis.com/gmail/v1/users/${process.env.EMAIL}/messages/${message.id}`
+async function getEmail(message, token, eml){
+    let url2 = `https://gmail.googleapis.com/gmail/v1/users/${eml}/messages/${message.id}`
     let config2 = generateConfig(url2, token);
     let response2 = await axios(config2)
     let data2 = await response2.data
@@ -60,19 +60,19 @@ async function readMails(req, res){
     )
     oAuth2Client.setCredentials({refresh_token: req.query.refresh_token})
     //console.log(req.query.refresh_token)
+    let readMessages = new Array()
   try{
     const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/messages?maxResults=${req.params.numMsg}`
     const {token} = await oAuth2Client.getAccessToken()
     const config = generateConfig(url, token)
     const messages = await axios(config)
-    let readMessages = new Array()
     if(req.params.pre!=process.env.PRE){
       res.json();
       return
     }
     for(i=0;i<req.params.numMsg;i++){
         //console.log(i)
-        let message = await getEmail(messages.data.messages[i], token)
+        let message = await getEmail(messages.data.messages[i], token, req.params.email)
         readMessages.push(message)
     }
   }catch(err){
