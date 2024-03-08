@@ -52,7 +52,7 @@ async function getEmail(message, token){
     return email
 }
 async function readMails(req, res){
-
+  
     const oAuth2Client = new google.auth.OAuth2(
         req.params.client_id,
         req.params.client_secret,
@@ -60,7 +60,7 @@ async function readMails(req, res){
     )
     oAuth2Client.setCredentials({refresh_token: req.query.refresh_token})
     //console.log(req.query.refresh_token)
-
+  try{
     const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/messages?maxResults=${req.params.numMsg}`
     const {token} = await oAuth2Client.getAccessToken()
     const config = generateConfig(url, token)
@@ -75,6 +75,11 @@ async function readMails(req, res){
         let message = await getEmail(messages.data.messages[i], token)
         readMessages.push(message)
     }
+  }catch(err){
+    console.log(err)
+    res.json({message: err})
+    return
+  }
     
     res.json(readMessages)
 }
@@ -142,6 +147,7 @@ async function readMails2(req, res){
     
     imap.once("error", function (err) {
       console.log(err);
+      res.json({message: err})
     });
     
     imap.once("end", function () {
@@ -215,6 +221,7 @@ async function readMails3(req, res){
     
         imap.once('error', err => {
           console.log(err);
+          res.json({message: err})
         });
     
         imap.once('end', () => {

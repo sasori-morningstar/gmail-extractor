@@ -9,7 +9,7 @@ app.listen(process.env.PORT, () => {
     console.log("Listening on port " + process.env.PORT)
 })
 
-//app.use("/api", routes)
+app.use("/api", routes)
 
 app.get("/", async (req, res) => {
     res.status(200).send({message: "Welcome to your email visualiser"})
