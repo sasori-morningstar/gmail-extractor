@@ -5,6 +5,9 @@
     "dotenv": "^16.4.5",
     "express": "^4.18.3",
     "googleapis": "^133.0.0",
-    "nodemailer": "^6.9.11"
+    "imap": "^0.8.19",
+    "mailparser": "^3.6.9",
+    "nodemailer": "^6.9.11",
+    "util": "^0.12.5"
   }
 }

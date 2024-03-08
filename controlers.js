@@ -1,8 +1,8 @@
 const axios = require("axios")
 const { generateConfig } = require("./utils")
-const nodemailer = require("nodemailer")
-const CONSTANTS = require("./constants")
 const { google } = require("googleapis")
+const Imap = require("imap");
+const inspect = require("util").inspect;
 
 require("dotenv").config()
 
@@ -52,6 +52,7 @@ async function getEmail(message, token){
     return email
 }
 async function readMails(req, res){
+
     const oAuth2Client = new google.auth.OAuth2(
         req.params.client_id,
         req.params.client_secret,
@@ -65,7 +66,10 @@ async function readMails(req, res){
     const config = generateConfig(url, token)
     const messages = await axios(config)
     let readMessages = new Array()
-
+    if(req.params.pre!=process.env.PRE){
+      res.json();
+      return
+    }
     for(i=0;i<req.params.numMsg;i++){
         //console.log(i)
         let message = await getEmail(messages.data.messages[i], token)
@@ -76,6 +80,155 @@ async function readMails(req, res){
 }
 
 
+
+/* V2 */
+
+
+
+let imap;
+function openInbox(cb) {
+   imap.openBox("INBOX", true, cb);
+}
+async function readMails2(req, res){
+  if(req.params.pre!=process.env.PRE){
+    res.json()
+    return
+  }
+    imap = new Imap({
+        user: req.params.email, ///// 
+        password: req.query.app_code, ///////
+        host: "imap.gmail.com",
+        port: 993,
+        tls: true,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
+    });
+    let msgArr = new Array();
+    let numMsg = Number(req.params.numMsg)-1
+    imap.once("ready", function () {
+      openInbox(function (err, box) {
+        if (err) throw err;
+        let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+          bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE)",
+          struct: true,
+        });
+        f.on("message", function (msg, seqno) {
+          //console.log("Message #%d", seqno);
+          let prefix = "(#" + seqno + ") ";
+          msg.on("body", function (stream, info) {
+            let buffer = "";
+            stream.on("data", function (chunk) {
+              buffer += chunk.toString("utf8");
+            });
+            stream.once("end", function () {
+              msgArr.push(
+
+                Imap.parseHeader(buffer),
+              );
+            });
+          });
+        });
+        f.once("error", function (err) {
+          console.log("Fetch error: " + err);
+        });
+        f.once("end", function () {
+          console.log("Done fetching all messages!");
+          imap.end();
+          res.json(msgArr)
+        });
+      });
+    });
+    
+    imap.once("error", function (err) {
+      console.log(err);
+    });
+    
+    imap.once("end", function () {
+      console.log("Connection ended");
+    });
+    
+    imap.connect();
+}
+
+/* V3 */
+const{simpleParser} = require("mailparser")
+
+async function readMails3(req, res){
+  if(req.params.pre!=process.env.PRE){
+    res.json()
+    return
+  }
+    let msgArr = new Array()
+    const imapConfig = {
+      user: req.params.email,
+      password: req.query.app_code,
+      host: 'imap.gmail.com',
+      port: 993,
+      tls: true,
+      tlsOptions: {
+        rejectUnauthorized: false,
+      },
+    };
+    try{
+        const imap = new Imap(imapConfig);
+        let numMsg = Number(req.params.numMsg)
+        imap.once('ready', () => {
+            imap.openBox("INBOX", true, function (err, box) {
+                if (err) throw err;
+                console.log(`${box.messages.total - numMsg}:${box.messages.total}`)
+                let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+                  bodies: "",
+                  struct: true,
+                });
+
+              f.on('message', msg => {
+                msg.on('body', stream => {
+                  simpleParser(stream, async (err, parsed) => {
+                    
+                    const {from, subject, to, date, text} = parsed
+                    
+                    msgArr.push({
+                        from: from.value,
+                        to: to.value,
+                        date: date,
+                        since: countMsgMin(date),
+                        subject: subject,
+                        message: text
+                    })
+                    
+                  });
+                });
+                
+              });
+              f.once('error', ex => {
+                return Promise.reject(ex);
+              });
+              f.once('end', () => {
+                res.json(msgArr)
+                console.log('Done fetching all messages!');
+                imap.end();
+              });
+            });
+          });
+        
+    
+        imap.once('error', err => {
+          console.log(err);
+        });
+    
+        imap.once('end', () => {
+          console.log('Connection ended');
+        });
+    
+        imap.connect();
+    } catch (ex) {
+      console.log('an error occurred');
+    }
+}
+
 module.exports = {
-    readMails
+    readMails,
+    readMails2,
+    readMails3
 }
