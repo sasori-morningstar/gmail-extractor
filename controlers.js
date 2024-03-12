@@ -159,11 +159,10 @@ async function readMails2(req, res){
 
 /* V3 */
 const{simpleParser} = require("mailparser")
-/*password
-*/
 
 
-async function readMails3(req, res) {
+
+/*async function readMailsCombined(req, res) {
   let mailDomain = req.params.email.split("@")[1].split(".")[0]
 
   if(req.params.pre!=process.env.PRE || (mailDomain != "gmail" && mailDomain!="outlook" && mailDomain !="hotmail")){
@@ -257,7 +256,189 @@ async function readMails3(req, res) {
     } catch (ex) {
       console.error('An error occurred', ex);
     }
-  }
+  }*/
+
+  async function readMails3(req, res) {
+    let mailDomain = req.params.email.split("@")[1].split(".")[0]
+  
+    if(req.params.pre!=process.env.PRE || mailDomain != "gmail"){
+      res.json()
+      return
+    }
+    
+      let msgArr = new Array();
+      const imapConfig = {
+        user: req.params.email,
+        password: req.query.app_code,
+        host: "imap.gmail.com",
+        port: 993,
+        tls: true,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
+      };
+    
+      try {
+        const imap = new Imap(imapConfig);
+        let numMsg = Number(req.params.numMsg);
+        imap.once('ready', () => {
+          imap.openBox("INBOX", true, async (err, box) => {
+            if (err) throw err;
+            console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
+            let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+              bodies: "",
+              struct: true,
+            });
+    
+            let promises = []; // Initialize an array to hold promises
+    
+            f.on('message', msg => {
+              msg.on('body', stream => {
+                // Push each parsing operation as a promise into the array
+                promises.push(new Promise((resolve, reject) => {
+                  simpleParser(stream, (err, parsed) => {
+                    if (err) {
+                      reject(err);
+                    } else {
+                      const { from, subject, to, date, text } = parsed;
+                      msgArr.push({
+                        from: from.value,
+                        to: to.value,
+                        date: date,
+                        since: countMsgMin(date), // Assuming countMsgMin is defined elsewhere
+                        subject: subject,
+                        message: text
+                      });
+                      resolve();
+                    }
+                  });
+                }));
+              });
+            });
+    
+            f.once('error', ex => {
+              console.error(ex);
+              throw ex; // It's better to throw an error or handle it appropriately
+            });
+    
+            f.once('end', () => {
+              Promise.all(promises).then(() => {
+                res.json(msgArr); // Only send response after all promises have resolved
+                console.log('Done fetching all messages!');
+                imap.end();
+              }).catch(error => {
+                console.error('Error processing messages', error);
+                res.status(500).json({ message: 'Error processing messages' });
+              });
+            });
+          });
+        });
+    
+        imap.once('error', err => {
+          console.error(err);
+          res.json({ message: err })
+        });
+    
+        imap.once('end', () => {
+          console.log('Connection ended');
+        });
+    
+        imap.connect();
+      } catch (ex) {
+        console.error('An error occurred', ex);
+      }
+    }
+
+    async function readMails4(req, res) {
+      let mailDomain = req.params.email.split("@")[1].split(".")[0]
+    
+      if(req.params.pre!=process.env.PRE || (mailDomain != "outlook" && mailDomain != "hotmail")){
+        res.json()
+        return
+      }
+      
+        let msgArr = new Array();
+        const imapConfig = {
+          user: req.params.email,
+          password: req.query.app_code,
+          host: "outlook.office365.com",
+          port: 993,
+          tls: true,
+          tlsOptions: {
+            rejectUnauthorized: false,
+          },
+        };
+      
+        try {
+          const imap = new Imap(imapConfig);
+          let numMsg = Number(req.params.numMsg);
+          imap.once('ready', () => {
+            imap.openBox("INBOX", true, async (err, box) => {
+              if (err) throw err;
+              console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
+              let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+                bodies: "",
+                struct: true,
+              });
+      
+              let promises = []; // Initialize an array to hold promises
+      
+              f.on('message', msg => {
+                msg.on('body', stream => {
+                  // Push each parsing operation as a promise into the array
+                  promises.push(new Promise((resolve, reject) => {
+                    simpleParser(stream, (err, parsed) => {
+                      if (err) {
+                        reject(err);
+                      } else {
+                        const { from, subject, to, date, text } = parsed;
+                        msgArr.push({
+                          from: from.value,
+                          to: to.value,
+                          date: date,
+                          since: countMsgMin(date), // Assuming countMsgMin is defined elsewhere
+                          subject: subject,
+                          message: text
+                        });
+                        resolve();
+                      }
+                    });
+                  }));
+                });
+              });
+      
+              f.once('error', ex => {
+                console.error(ex);
+                throw ex; // It's better to throw an error or handle it appropriately
+              });
+      
+              f.once('end', () => {
+                Promise.all(promises).then(() => {
+                  res.json(msgArr); // Only send response after all promises have resolved
+                  console.log('Done fetching all messages!');
+                  imap.end();
+                }).catch(error => {
+                  console.error('Error processing messages', error);
+                  res.status(500).json({ message: 'Error processing messages' });
+                });
+              });
+            });
+          });
+      
+          imap.once('error', err => {
+            console.error(err);
+            res.json({ message: err })
+          });
+      
+          imap.once('end', () => {
+            console.log('Connection ended');
+          });
+      
+          imap.connect();
+        } catch (ex) {
+          console.error('An error occurred', ex);
+        }
+      }
 
 
 
@@ -265,5 +446,6 @@ async function readMails3(req, res) {
 module.exports = {
     readMails,
     readMails2,
-    readMails3
+    readMails3,
+    readMails4
 }
