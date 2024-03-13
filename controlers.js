@@ -3,6 +3,7 @@ const { generateConfig } = require("./utils")
 const { google } = require("googleapis")
 const Imap = require("imap");
 const inspect = require("util").inspect;
+const { Client } = require("@microsoft/microsoft-graph-client");
 
 require("dotenv").config()
 
@@ -114,6 +115,10 @@ async function readMails2(req, res){
     imap.once("ready", function () {
       openInbox(function (err, box) {
         if (err) throw err;
+        if(numMsg>box.messages.total){
+          res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
+          return
+        }
         let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
           bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE)",
           struct: true,
@@ -193,9 +198,13 @@ const{simpleParser} = require("mailparser")
       imap.once('ready', () => {
         imap.openBox("INBOX", true, async (err, box) => {
           if (err) throw err;
+          if(numMsg>box.messages.total){
+          res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
+          return
+        }
           console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
           let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-            bodies: "",
+            bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
             struct: true,
           });
   
@@ -284,9 +293,13 @@ const{simpleParser} = require("mailparser")
         imap.once('ready', () => {
           imap.openBox("INBOX", true, async (err, box) => {
             if (err) throw err;
+            if(numMsg>box.messages.total){
+              res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
+              return
+            }
             console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
             let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-              bodies: "",
+              bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
               struct: true,
             });
     
@@ -375,9 +388,13 @@ const{simpleParser} = require("mailparser")
           imap.once('ready', () => {
             imap.openBox("INBOX", true, async (err, box) => {
               if (err) throw err;
+              if(numMsg>box.messages.total){
+                res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
+                return
+              }
               console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
               let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-                bodies: "",
+                bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
                 struct: true,
               });
       
@@ -440,6 +457,37 @@ const{simpleParser} = require("mailparser")
         }
       }
 
+async function readMails5(req, res){
+  const num = req.params.numMsg;
+  const userAccessToken = req.query.token
+
+  try {
+
+    // Initialize the Microsoft Graph API client using the user access token
+    const client = Client.init({
+      authProvider: (done) => {
+        done(null, userAccessToken);
+      },
+    });
+
+    // Fetch the user's emails using the Microsoft Graph API
+    const response = await client.api("/me/messages").top(num)
+    .select('from, toRecipients, receivedDateTime, subject, body').get();
+    const messages = response.value.map((message) => ({
+      from: message.from?.emailAddress?.address,
+      to: message.toRecipients?.map(recipient => recipient.emailAddress?.address),
+      date: message.receivedDateTime,
+      since: countMsgMin(message.receivedDateTime),
+      subject: message.subject,
+      body: message.body.content, // Or `.content` depending on the structure
+    }));
+    res.send(messages);
+  } catch (error) {
+    res.status(500).send(error);
+    console.log("Error fetching messages:", error.message);
+  }
+}
+
 
 
 
@@ -447,5 +495,6 @@ module.exports = {
     readMails,
     readMails2,
     readMails3,
-    readMails4
+    readMails4,
+    readMails5
 }

@@ -1,0 +1,9 @@
+Pour avoir la liste des emails, tu dois suivre le lien:
+
+GOOGLE:
+http://localhost:PORT/api/{api prefix}/v1/{EMAIL ADDRESS HERE}/{CLIENT ID HERE}/{CLIENT SECRET HERE}?refresh_token={REFRESH TOKEN HERE (WITHOUT STRING SIGNS)}
+http://localhost:PORT/api/{api prefix}/v2/{EMAIL ADDRESS HERE}?app_code={APP CODE}
+http://localhost:PORT/api/{api prefix}/v3/{EMAIL ADDRESS HERE}?app_code={APP CODE}
+
+OUTLOOK OR HOTMAIL:
+http://localhost:PORT/api/{api prefix}/v4/{EMAIL ADDRESS HERE}?app_code={PASSWORD}
