@@ -310,44 +310,57 @@ const{simpleParser} = require("mailparser")
             let f
               if(numMsg>=box.messages.total){
                 f = imap.seq.fetch(`1:*`, {
-                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
                   struct: true,
                 });
               }else{
                 f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
                   struct: true,
                 });
               }
     
             let promises = []; // Initialize an array to hold promises
     
-            f.on('message', msg => {
-              msg.on('body', stream => {
+            f.on('message', (msg, seqno) => {
+              let obj={
+                from: null,
+                to: null,
+                date: null,
+                since: null,
+                subject: null,
+                message: null
+              };
+              msg.on('body', (stream, info) => {
                 // Push each parsing operation as a promise into the array
                 promises.push(new Promise((resolve, reject) => {
                   simpleParser(stream, (err, parsed) => {
                     if (err) {
                       reject(err);
                     } else {
-                      const { from, subject, to, date, text } = parsed;
+                      if(info.which=="TEXT"){
+                        obj.message=parsed.text
+                      }else{
+                        obj.from=parsed.from.value.map(a => a.address).join(', ')
+                        obj.to=parsed.to?.value.map(to => `${to.name} <${to.address}>`).join(', ')
+                        obj.date=parsed.date
+                        obj.since=countMsgMin(parsed.date)
+                        obj.subject=parsed.subject
+                      }
+                      //const { from, subject, to, date, text } = parsed;
+                      //res.json(parsed)
 
                      // if(subject==="abc"){
-                        msgArr.push({
-                          from: from.value,
-                          to: to.value,
-                          date: date,
-                          since: countMsgMin(date), // Assuming countMsgMin is defined elsewhere
-                          subject: subject,
-                          message: text
-                        });
+                        
                        // res.status(200).json(msgArr)
                       //}      
                       resolve();
                     }
                   });
+                  
                 }));
               });
+              msgArr.push(obj);
             });
     
             f.once('error', ex => {
@@ -416,45 +429,58 @@ const{simpleParser} = require("mailparser")
               let f
               if(numMsg>=box.messages.total){
                 f = imap.seq.fetch(`1:*`, {
-                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
                   struct: true,
                 });
               }else{
                 f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
                   struct: true,
                 });
               }
-              console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
-              
-              
-      
-              let promises = []; // Initialize an array to hold promises
-      
-              f.on('message', msg => {
-                msg.on('body', stream => {
-                  // Push each parsing operation as a promise into the array
-                  promises.push(new Promise((resolve, reject) => {
-                    simpleParser(stream, (err, parsed) => {
-                      if (err) {
-                        reject(err);
-                      } else {
-                        const { from, subject, to, date, text } = parsed;
-                        
-                        msgArr.push({
-                          from: from.value,
-                          to: to.value,
-                          date: date,
-                          since: countMsgMin(date), // Assuming countMsgMin is defined elsewhere
-                          subject: subject,
-                          message: text
-                        });
-                        resolve();
+    
+            let promises = []; // Initialize an array to hold promises
+    
+            f.on('message', (msg, seqno) => {
+              let obj={
+                from: null,
+                to: null,
+                date: null,
+                since: null,
+                subject: null,
+                message: null
+              };
+              msg.on('body', (stream, info) => {
+                // Push each parsing operation as a promise into the array
+                promises.push(new Promise((resolve, reject) => {
+                  simpleParser(stream, (err, parsed) => {
+                    if (err) {
+                      reject(err);
+                    } else {
+                      if(info.which=="TEXT"){
+                        obj.message=parsed.text
+                      }else{
+                        obj.from=parsed.from.value.map(a => a.address).join(', ')
+                        obj.to=parsed.to?.value.map(to => `${to.name} <${to.address}>`).join(', ')
+                        obj.date=parsed.date
+                        obj.since=countMsgMin(parsed.date)
+                        obj.subject=parsed.subject
                       }
-                    });
-                  }));
-                });
+                      //const { from, subject, to, date, text } = parsed;
+                      //res.json(parsed)
+
+                     // if(subject==="abc"){
+                        
+                       // res.status(200).json(msgArr)
+                      //}      
+                      resolve();
+                    }
+                  });
+                  
+                }));
               });
+              msgArr.push(obj);
+            });
       
               f.once('error', ex => {
                 console.error(ex);
