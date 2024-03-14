@@ -115,14 +115,23 @@ async function readMails2(req, res){
     imap.once("ready", function () {
       openInbox(function (err, box) {
         if (err) throw err;
-        if(numMsg>box.messages.total){
+        if(box.messages.total==0){
           res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
           return
         }
-        let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-          bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE)",
-          struct: true,
-        });
+        let f
+              if(numMsg>=box.messages.total){
+                f = imap.seq.fetch(`1:*`, {
+                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE)",
+                  struct: true,
+                });
+              }else{
+                f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE)",
+                  struct: true,
+                });
+              }
+        
         f.on("message", function (msg, seqno) {
           //console.log("Message #%d", seqno);
           let prefix = "(#" + seqno + ") ";
@@ -293,15 +302,23 @@ const{simpleParser} = require("mailparser")
         imap.once('ready', () => {
           imap.openBox("INBOX", true, async (err, box) => {
             if (err) throw err;
-            if(numMsg>box.messages.total){
+            if(box.messages.total==0){
               res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
               return
             }
             console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
-            let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-              bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
-              struct: true,
-            });
+            let f
+              if(numMsg>=box.messages.total){
+                f = imap.seq.fetch(`1:*`, {
+                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  struct: true,
+                });
+              }else{
+                f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  struct: true,
+                });
+              }
     
             let promises = []; // Initialize an array to hold promises
     
@@ -314,14 +331,18 @@ const{simpleParser} = require("mailparser")
                       reject(err);
                     } else {
                       const { from, subject, to, date, text } = parsed;
-                      msgArr.push({
-                        from: from.value,
-                        to: to.value,
-                        date: date,
-                        since: countMsgMin(date), // Assuming countMsgMin is defined elsewhere
-                        subject: subject,
-                        message: text
-                      });
+
+                     // if(subject==="abc"){
+                        msgArr.push({
+                          from: from.value,
+                          to: to.value,
+                          date: date,
+                          since: countMsgMin(date), // Assuming countMsgMin is defined elsewhere
+                          subject: subject,
+                          message: text
+                        });
+                       // res.status(200).json(msgArr)
+                      //}      
                       resolve();
                     }
                   });
@@ -388,15 +409,25 @@ const{simpleParser} = require("mailparser")
           imap.once('ready', () => {
             imap.openBox("INBOX", true, async (err, box) => {
               if (err) throw err;
-              if(numMsg>box.messages.total){
+              if(box.messages.total==0){
                 res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
                 return
               }
+              let f
+              if(numMsg>=box.messages.total){
+                f = imap.seq.fetch(`1:*`, {
+                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  struct: true,
+                });
+              }else{
+                f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+                  bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
+                  struct: true,
+                });
+              }
               console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
-              let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-                bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE TEXT)",
-                struct: true,
-              });
+              
+              
       
               let promises = []; // Initialize an array to hold promises
       
@@ -409,6 +440,7 @@ const{simpleParser} = require("mailparser")
                         reject(err);
                       } else {
                         const { from, subject, to, date, text } = parsed;
+                        
                         msgArr.push({
                           from: from.value,
                           to: to.value,
