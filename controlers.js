@@ -276,7 +276,7 @@ const{simpleParser} = require("mailparser")
     }
   }*/
 
-  async function readMails3(req, res) {
+  /*async function readMails3(req, res) {
     let mailDomain = req.params.email.split("@")[1].split(".")[0]
   
     if(req.params.pre!=process.env.PRE || mailDomain != "gmail"){
@@ -323,6 +323,7 @@ const{simpleParser} = require("mailparser")
             let promises = []; // Initialize an array to hold promises
     
             f.on('message', (msg, seqno) => {
+              console.log(msg)
               let obj={
                 from: null,
                 to: null,
@@ -333,6 +334,7 @@ const{simpleParser} = require("mailparser")
               };
               msg.on('body', (stream, info) => {
                 // Push each parsing operation as a promise into the array
+                
                 promises.push(new Promise((resolve, reject) => {
                   simpleParser(stream, (err, parsed) => {
                     if (err) {
@@ -346,6 +348,8 @@ const{simpleParser} = require("mailparser")
                         obj.date=parsed.date
                         obj.since=countMsgMin(parsed.date)
                         obj.subject=parsed.subject
+                        obj.message=parsed.text
+                        
                       }
                       //const { from, subject, to, date, text } = parsed;
                       //res.json(parsed)
@@ -394,7 +398,123 @@ const{simpleParser} = require("mailparser")
       } catch (ex) {
         console.error('An error occurred', ex);
       }
-    }
+    }*/
+async function readMails3(req, res){
+  let mailDomain = req.params.email.split("@")[1].split(".")[0]
+  
+  if(req.params.pre!=process.env.PRE || mailDomain != "gmail"){
+    res.json()
+    return
+  }
+    
+  let msgArr = new Array();
+  const imapConfig = {
+    user: req.params.email,
+    password: req.query.app_code,
+    host: "imap.gmail.com",
+    port: 993,
+    tls: true,
+    tlsOptions: {
+      rejectUnauthorized: false,
+    },
+  };
+
+  const imap = new Imap(imapConfig);
+  try {
+    const imap = new Imap(imapConfig);
+    let numMsg = Number(req.params.numMsg);
+    imap.once('ready', () => {
+      imap.openBox("INBOX", true, async (err, box) => {
+        if (err) throw err;
+        if(numMsg>box.messages.total){
+        res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
+        return
+      }
+        console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
+        let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+          bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)","TEXT"],
+          
+        });
+        let promises = []; // Initialize an array to hold promises
+        f.on('message', function(msg, seqno) {
+          let obj={
+            from: null,
+            to: null,
+            date: null,
+            since: null,
+            subject: null,
+            message: null
+          };
+          let headers = '', body = '';
+      
+          msg.on('body', function(stream, info) {
+            
+            let buffer = '';
+            stream.on('data', function(chunk) {
+              buffer += chunk.toString('utf8');
+            });
+            stream.once('end', function() {
+              if (info.which === 'TEXT') body += buffer;
+              else headers += buffer;
+            });
+          });
+      
+          msg.once('end', function() {
+            // Combine the headers and body to parse them together
+            promises.push(new Promise((resolve, reject) => {
+              simpleParser(headers + body, (err, mail) => {
+                if (err) reject(err);
+          
+                // Now you can access the parsed mail object
+              
+                console.log('From:', mail.from.text);
+                obj.from=mail.from.text
+                obj.to=mail.to.text
+                obj.subject=mail.subject
+                obj.date=mail.date
+                obj.since=countMsgMin(mail.date)
+                obj.message=mail.text
+                /*console.log('To:', mail.to.text);
+                console.log('Subject:', mail.subject);
+                console.log('Date:', mail.date);
+                console.log('Body:', mail.text);*/ // or mail.html for HTML content
+                resolve()
+              });
+            }))
+          });
+          msgArr.push(obj);
+        });
+    
+        f.once('error', function(err) {
+          console.log('Fetch error: ' + err);
+        });
+    
+        f.once('end', function() {
+          Promise.all(promises).then(() => {
+            res.json(msgArr); // Only send response after all promises have resolved
+            console.log('Done fetching all messages!');
+            imap.end();
+          }).catch(error => {
+            console.error('Error processing messages', error);
+            res.status(500).json({ message: 'Error processing messages' });
+          });
+        });
+      });
+    });
+
+    imap.once('error', function(err) {
+      console.log(err);
+    });
+
+    imap.once('end', function() {
+      console.log('Connection ended');
+    });
+
+    imap.connect();
+  } catch (error) {
+    console.error('An error occurred', error);
+  }
+}
 
     async function readMails4(req, res) {
       let mailDomain = req.params.email.split("@")[1].split(".")[0]
@@ -416,104 +536,102 @@ const{simpleParser} = require("mailparser")
           },
         };
       
-        try {
-          const imap = new Imap(imapConfig);
-          let numMsg = Number(req.params.numMsg);
-          imap.once('ready', () => {
-            imap.openBox("INBOX", true, async (err, box) => {
-              if (err) throw err;
-              if(box.messages.total==0){
-                res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
-                return
-              }
-              let f
-              if(numMsg>=box.messages.total){
-                f = imap.seq.fetch(`1:*`, {
-                  bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
-                  struct: true,
-                });
-              }else{
-                f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-                  bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
-                  struct: true,
-                });
-              }
     
-            let promises = []; // Initialize an array to hold promises
-    
-            f.on('message', (msg, seqno) => {
-              let obj={
-                from: null,
-                to: null,
-                date: null,
-                since: null,
-                subject: null,
-                message: null
-              };
-              msg.on('body', (stream, info) => {
-                // Push each parsing operation as a promise into the array
-                promises.push(new Promise((resolve, reject) => {
-                  simpleParser(stream, (err, parsed) => {
-                    if (err) {
-                      reject(err);
-                    } else {
-                      if(info.which=="TEXT"){
-                        obj.message=parsed.text
-                      }else{
-                        obj.from=parsed.from.value.map(a => a.address).join(', ')
-                        obj.to=parsed.to?.value.map(to => `${to.name} <${to.address}>`).join(', ')
-                        obj.date=parsed.date
-                        obj.since=countMsgMin(parsed.date)
-                        obj.subject=parsed.subject
-                      }
-                      //const { from, subject, to, date, text } = parsed;
-                      //res.json(parsed)
-
-                     // if(subject==="abc"){
-                        
-                       // res.status(200).json(msgArr)
-                      //}      
-                      resolve();
-                    }
-                  });
-                  
-                }));
-              });
-              msgArr.push(obj);
-            });
-      
-              f.once('error', ex => {
-                console.error(ex);
-                throw ex; // It's better to throw an error or handle it appropriately
-              });
-      
-              f.once('end', () => {
-                Promise.all(promises).then(() => {
-                  res.json(msgArr); // Only send response after all promises have resolved
-                  console.log('Done fetching all messages!');
-                  imap.end();
-                }).catch(error => {
-                  console.error('Error processing messages', error);
-                  res.status(500).json({ message: 'Error processing messages' });
-                });
-              });
-            });
-          });
-      
-          imap.once('error', err => {
-            console.error(err);
-            res.json({ message: err })
-          });
-      
-          imap.once('end', () => {
-            console.log('Connection ended');
-          });
-      
-          imap.connect();
-        } catch (ex) {
-          console.error('An error occurred', ex);
-        }
+  try {
+    const imap = new Imap(imapConfig);
+    let numMsg = Number(req.params.numMsg);
+    imap.once('ready', () => {
+      imap.openBox("INBOX", true, async (err, box) => {
+        if (err) throw err;
+        if(numMsg>box.messages.total){
+        res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
+        return
       }
+        console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
+        let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+          bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)","TEXT"],
+          
+        });
+        let promises = []; // Initialize an array to hold promises
+        f.on('message', function(msg, seqno) {
+          let obj={
+            from: null,
+            to: null,
+            date: null,
+            since: null,
+            subject: null,
+            message: null
+          };
+          let headers = '', body = '';
+      
+          msg.on('body', function(stream, info) {
+            
+            let buffer = '';
+            stream.on('data', function(chunk) {
+              buffer += chunk.toString('utf8');
+            });
+            stream.once('end', function() {
+              if (info.which === 'TEXT') body += buffer;
+              else headers += buffer;
+            });
+          });
+      
+          msg.once('end', function() {
+            // Combine the headers and body to parse them together
+            promises.push(new Promise((resolve, reject) => {
+              simpleParser(headers + body, (err, mail) => {
+                if (err) reject(err);
+          
+                // Now you can access the parsed mail object
+              
+                console.log('From:', mail.from.text);
+                obj.from=mail.from.text
+                obj.to=mail.to.text
+                obj.subject=mail.subject
+                obj.date=mail.date
+                obj.since=countMsgMin(mail.date)
+                obj.message=mail.text
+                /*console.log('To:', mail.to.text);
+                console.log('Subject:', mail.subject);
+                console.log('Date:', mail.date);
+                console.log('Body:', mail.text);*/ // or mail.html for HTML content
+                resolve()
+              });
+            }))
+          });
+          msgArr.push(obj);
+        });
+    
+        f.once('error', function(err) {
+          console.log('Fetch error: ' + err);
+        });
+    
+        f.once('end', function() {
+          Promise.all(promises).then(() => {
+            res.json(msgArr); // Only send response after all promises have resolved
+            console.log('Done fetching all messages!');
+            imap.end();
+          }).catch(error => {
+            console.error('Error processing messages', error);
+            res.status(500).json({ message: 'Error processing messages' });
+          });
+        });
+      });
+    });
+
+    imap.once('error', function(err) {
+      console.log(err);
+    });
+
+    imap.once('end', function() {
+      console.log('Connection ended');
+    });
+
+    imap.connect();
+  } catch (error) {
+    console.error('An error occurred', error);
+  }
+}
 
 async function readMails5(req, res){
   const num = req.params.numMsg;
