@@ -426,15 +426,23 @@ async function readMails3(req, res){
     imap.once('ready', () => {
       imap.openBox("INBOX", true, async (err, box) => {
         if (err) throw err;
-        if(numMsg>box.messages.total){
+        if(box.messages.total==0){
         res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
         return
       }
         console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
-        let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-          bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)","TEXT"],
-          
-        });
+        let f
+        if(numMsg>=box.messages.total){
+          f = imap.seq.fetch(`1:*`, {
+            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"]
+            
+          });
+        }else{
+          f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"]
+            
+          });
+        }
         let promises = []; // Initialize an array to hold promises
         f.on('message', function(msg, seqno) {
           let obj={
@@ -543,15 +551,23 @@ async function readMails3(req, res){
     imap.once('ready', () => {
       imap.openBox("INBOX", true, async (err, box) => {
         if (err) throw err;
-        if(numMsg>box.messages.total){
+        if(box.messages.total==0){
         res.status(500).json({message: `The total messages in this mail is ${box.messages.total}`})
         return
       }
+      let f
         console.log(`${box.messages.total - numMsg}:${box.messages.total}`);
-        let f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-          bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)","TEXT"],
-          
-        });
+        if(numMsg>=box.messages.total){
+          f = imap.seq.fetch(`1:*`, {
+            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"]
+            
+          });
+        }else{
+          f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
+            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"]
+            
+          });
+        }
         let promises = []; // Initialize an array to hold promises
         f.on('message', function(msg, seqno) {
           let obj={
