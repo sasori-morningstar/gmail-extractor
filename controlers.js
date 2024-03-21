@@ -5,6 +5,8 @@ const Imap = require("imap");
 const inspect = require("util").inspect;
 const { Client } = require("@microsoft/microsoft-graph-client");
 
+
+
 require("dotenv").config()
 
 /*const oAuth2Client = new google.auth.OAuth2(
@@ -173,6 +175,7 @@ async function readMails2(req, res){
 
 /* V3 */
 const{simpleParser} = require("mailparser")
+const htmlToText=require("html-to-text")
 
 
 
@@ -399,6 +402,30 @@ const{simpleParser} = require("mailparser")
         console.error('An error occurred', ex);
       }
     }*/
+function partMessage(mixedString){
+    // Regular expression to match base64 encoded content
+  let decodedString=""
+  let bgn="base64 "
+  let end=" ----"
+  let bgnIndex,endIndex
+  
+  do{
+    bgnIndex=mixedString.indexOf(bgn)+bgn.length
+    endIndex=mixedString.indexOf(end)
+    
+    if(bgnIndex!=-1&&endIndex!=-1){
+      decodedString+=Buffer.from(mixedString.slice(bgnIndex, endIndex), "base64").toString("utf8")
+      mixedString=mixedString.slice(endIndex+1, mixedString.length-1)
+    }else{
+      decodedString+=mixedString
+    }
+  }while(bgnIndex!=-1&&endIndex!=-1)
+  
+  
+  
+
+  return decodedString
+}
 async function readMails3(req, res){
   let mailDomain = req.params.email.split("@")[1].split(".")[0]
   
@@ -434,12 +461,13 @@ async function readMails3(req, res){
         let f
         if(numMsg>=box.messages.total){
           f = imap.seq.fetch(`1:*`, {
-            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"]
-            
+            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
+            struct: true
           });
         }else{
           f = imap.seq.fetch(`${box.messages.total - numMsg}:${box.messages.total}`, {
-            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"]
+            bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
+            struct: true
             
           });
         }
@@ -457,9 +485,12 @@ async function readMails3(req, res){
       
           msg.on('body', function(stream, info) {
             
+            
             let buffer = '';
+            
             stream.on('data', function(chunk) {
-              buffer += chunk.toString('utf8');
+              
+              buffer += Buffer.from(chunk, "base64").toString('utf8');
             });
             stream.once('end', function() {
               if (info.which === 'TEXT') body += buffer;
@@ -481,7 +512,11 @@ async function readMails3(req, res){
                 obj.subject=mail.subject
                 obj.date=mail.date
                 obj.since=countMsgMin(mail.date)
-                obj.message=mail.text
+                obj.message=partMessage(htmlToText.convert(mail.text, {
+                  wordwrap: false, // Disable word wrapping
+                  ignoreHref: true, // Ignore links
+                  ignoreImage: true // Ignore images
+                }))
                 /*console.log('To:', mail.to.text);
                 console.log('Subject:', mail.subject);
                 console.log('Date:', mail.date);
@@ -606,7 +641,11 @@ async function readMails3(req, res){
                 obj.subject=mail.subject
                 obj.date=mail.date
                 obj.since=countMsgMin(mail.date)
-                obj.message=mail.text
+                obj.message=partMessage(htmlToText.convert(mail.text, {
+                  wordwrap: false, // Disable word wrapping
+                  ignoreHref: true, // Ignore links
+                  ignoreImage: true // Ignore images
+                }))
                 /*console.log('To:', mail.to.text);
                 console.log('Subject:', mail.subject);
                 console.log('Date:', mail.date);
