@@ -402,7 +402,7 @@ const htmlToText=require("html-to-text")
         console.error('An error occurred', ex);
       }
     }*/
-function partMessage(mixedString, domain){
+/*function partMessage(mixedString, domain){
     // Regular expression to match base64 encoded content
   let decodedString=""
   let bgn="base64 "
@@ -435,6 +435,41 @@ function partMessage(mixedString, domain){
   
 
   return decodedString
+}*/
+function partMessage(mixedString, domain) {
+  // Define end markers for base64 encoded content based on domain
+  const endMarker = domain === "google" ? " ----" : "=";
+  
+  // Regex pattern to match base64 encoded segments for both domains
+  const pattern = new RegExp(`base64 ([\\s\\S]*?${endMarker})`, 'g');
+  
+  // Function to decode base64
+  const decodeBase64 = (encodedString) => Buffer.from(encodedString, "base64").toString("utf8");
+  
+  let decodedString = "";
+  let lastIndex = 0;
+  let match;
+  
+  // Iterate over all matches and replace them with decoded content
+  while ((match = pattern.exec(mixedString)) !== null) {
+      // Append the non-base64 part between the last match and the current match
+      decodedString += mixedString.slice(lastIndex, match.index);
+      
+      // Extract and decode the base64 content, taking care to handle the domain-specific end marker
+      const base64Content = match[1].replace(new RegExp(`${endMarker}$`), '');
+      const decodedContent = decodeBase64(base64Content);
+      
+      // Append the decoded content
+      decodedString += decodedContent;
+      
+      // Update the last index to continue from after the current match
+      lastIndex = pattern.lastIndex;
+  }
+  
+  // Append any remaining non-base64 part after the last match
+  decodedString += mixedString.slice(lastIndex);
+  
+  return decodedString;
 }
 async function readMails3(req, res){
   let mailDomain = req.params.email.split("@")[1].split(".")[0]
