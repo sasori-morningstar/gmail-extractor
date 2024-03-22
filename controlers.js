@@ -402,24 +402,34 @@ const htmlToText=require("html-to-text")
         console.error('An error occurred', ex);
       }
     }*/
-function partMessage(mixedString){
+function partMessage(mixedString, domain){
     // Regular expression to match base64 encoded content
   let decodedString=""
   let bgn="base64 "
-  let end=" ----"
+  let end
+  if(domain=="google"){
+    end=" ----"
+  }else if(domain=="outlook"){
+    end="="
+  }
   let bgnIndex,endIndex
-  
+  console.log("lok")
   do{
     bgnIndex=mixedString.indexOf(bgn)+bgn.length
-    endIndex=mixedString.indexOf(end)
+    endIndex=(mixedString.slice(bgnIndex, mixedString.length-1)).indexOf(end)+bgnIndex-1
     
-    if(bgnIndex!=-1&&endIndex!=-1){
+    console.log(bgnIndex+":=>"+endIndex)
+    if(bgnIndex-bgn.length!=-1&&endIndex+1!=-1&&bgnIndex<=endIndex){
+      if(bgnIndex!=bgn.length){
+        decodedString+=mixedString.slice(0, bgnIndex-1)
+      }
       decodedString+=Buffer.from(mixedString.slice(bgnIndex, endIndex), "base64").toString("utf8")
-      mixedString=mixedString.slice(endIndex+1, mixedString.length-1)
+      mixedString=mixedString.slice(endIndex+end.length+1, mixedString.length-1)
     }else{
       decodedString+=mixedString
+      mixedString=""
     }
-  }while(bgnIndex!=-1&&endIndex!=-1)
+  }while(mixedString!="")
   
   
   
@@ -516,7 +526,7 @@ async function readMails3(req, res){
                   wordwrap: false, // Disable word wrapping
                   ignoreHref: true, // Ignore links
                   ignoreImage: true // Ignore images
-                }))
+                }), "google")
                 /*console.log('To:', mail.to.text);
                 console.log('Subject:', mail.subject);
                 console.log('Date:', mail.date);
@@ -645,7 +655,7 @@ async function readMails3(req, res){
                   wordwrap: false, // Disable word wrapping
                   ignoreHref: true, // Ignore links
                   ignoreImage: true // Ignore images
-                }))
+                }), "outlook")
                 /*console.log('To:', mail.to.text);
                 console.log('Subject:', mail.subject);
                 console.log('Date:', mail.date);
